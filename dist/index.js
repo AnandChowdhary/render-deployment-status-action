@@ -89,7 +89,7 @@ function run() {
                 throw new Error('No comment body found');
             core.debug(`Using comment body: ${commentBody}`);
             // Make sure comment is from Render
-            if (!commentBody.includes('Your Render PR Server URL is'))
+            if (!commentBody.includes('Your [Render](https://render.com) PR Server URL is'))
                 return core.debug('Comment is not from Render, skipping');
             const { serverUrl, serviceName, serviceId, dashboardUrl } = parseCommentBody(commentBody);
             core.debug(`Using server URL: ${serverUrl}`);

@@ -75,7 +75,11 @@ async function run(): Promise<void> {
     core.debug(`Using comment body: ${commentBody}`)
 
     // Make sure comment is from Render
-    if (!commentBody.includes('Your Render PR Server URL is'))
+    if (
+      !commentBody.includes(
+        'Your [Render](https://render.com) PR Server URL is'
+      )
+    )
       return core.debug('Comment is not from Render, skipping')
 
     const {serverUrl, serviceName, serviceId, dashboardUrl} =
