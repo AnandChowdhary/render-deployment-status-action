@@ -63,7 +63,7 @@ async function run(): Promise<void> {
     const apiKey: string =
       core.getInput('render-api-key') || process.env.RENDER_API_KEY || ''
     const render = axios.create({
-      baseURL: 'https://render.com/api/v1',
+      baseURL: 'https://api.render.com/api/v1',
       headers: {
         Authorization: `Bearer ${apiKey}`
       }
@@ -94,12 +94,6 @@ async function run(): Promise<void> {
     core.setOutput('dashboard-url', dashboardUrl)
 
     core.debug(`Getting deploys: /services/${serviceId}/deploys?limit=20`)
-    try {
-      await render.get<Data[]>(`/services/${serviceId}/deploys?limit=20`)
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.log(error)
-    }
     const {data} = await render.get<Data[]>(
       `/services/${serviceId}/deploys?limit=20`
     )
