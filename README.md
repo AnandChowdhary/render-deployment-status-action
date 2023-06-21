@@ -25,6 +25,7 @@ jobs:
   update:
     timeout-minutes: 15
     runs-on: ubuntu-latest
+    if: github.event.comment.user.login == 'render[bot]'
     permissions:
       deployments: write
 
@@ -36,4 +37,4 @@ jobs:
 
 ```
 
-This workflow uses the latest version of this action and runs every time a new comment is made. The default GitHub token is used with "write" permission for "deployments".
+This workflow uses the latest version of this action and runs whenever a comment is made by Render's app. The default GitHub token is used with "write" permission for "deployments".
