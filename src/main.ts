@@ -63,7 +63,7 @@ async function run(): Promise<void> {
     const apiKey: string =
       core.getInput('render-api-key') || process.env.RENDER_API_KEY || ''
     const render = axios.create({
-      baseURL: 'https://api.render.com/api/v1',
+      baseURL: 'https://api.render.com/v1',
       headers: {
         Authorization: `Bearer ${apiKey}`
       }
