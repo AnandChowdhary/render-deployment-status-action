@@ -1,11 +1,14 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Render Deployment Status Action'
+description: 'Get a deployment status from your Render PR preview environment'
+author: 'Anand Chowdhary <mail@anandchowdhary.com>'
 inputs:
-  milliseconds: # change this
+  render-api-key:
     required: true
-    description: 'input description here'
-    default: 'default value if applicable'
+    description: 'Render API key'
+  github-token:
+    required: true
+    description: 'GitHub token'
+    default: '${{ github.token }}'
 runs:
   using: 'node16'
   main: 'dist/index.js'
