@@ -94,6 +94,12 @@ async function run(): Promise<void> {
     core.setOutput('dashboard-url', dashboardUrl)
 
     core.debug(`Getting deploys: /services/${serviceId}/deploys?limit=20`)
+    try {
+      await render.get<Data[]>(`/services/${serviceId}/deploys?limit=20`)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.log(error)
+    }
     const {data} = await render.get<Data[]>(
       `/services/${serviceId}/deploys?limit=20`
     )

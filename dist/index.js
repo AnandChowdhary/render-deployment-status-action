@@ -101,6 +101,13 @@ function run() {
             core.setOutput('service-id', serviceId);
             core.setOutput('dashboard-url', dashboardUrl);
             core.debug(`Getting deploys: /services/${serviceId}/deploys?limit=20`);
+            try {
+                yield render.get(`/services/${serviceId}/deploys?limit=20`);
+            }
+            catch (error) {
+                // eslint-disable-next-line no-console
+                console.log(error);
+            }
             const { data } = yield render.get(`/services/${serviceId}/deploys?limit=20`);
             core.debug(`Got deploys: ${data.length}`);
             if (!data.length)
