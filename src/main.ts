@@ -63,7 +63,8 @@ async function run(): Promise<void> {
     const apiKey: string =
       core.getInput('render-api-key') || process.env.RENDER_API_KEY || ''
     const render = axios.create({
-      baseURL: 'https://api.render.com/v1',
+      baseURL:
+        core.getInput('render-api-base-url') || 'https://api.render.com/v1',
       headers: {
         Authorization: `Bearer ${apiKey}`
       }
@@ -113,7 +114,7 @@ async function run(): Promise<void> {
     const {data: deployment} = await octokit.rest.repos.createDeployment({
       ...context.repo,
       ref: deploy.commit.id,
-      environment: 'preview',
+      environment: `Render – ${serviceName} – ${deploy.id}`,
       description: `Preview deployment for ${context.payload.pull_request?.head.sha} on Render`,
       transient_environment: true,
       auto_merge: false
@@ -126,7 +127,12 @@ async function run(): Promise<void> {
     let attempts = 0
     while (status === 'pending') {
       // Check if we've exceeded the max number of attempts
-      if (attempts > 100) {
+      if (
+        attempts >
+        (core.getInput('max-attempts')
+          ? Number(core.getInput('max-attempts'))
+          : 100)
+      ) {
         core.debug('Exceeded max number of attempts, failing')
         await octokit.rest.repos.createDeploymentStatus({
           ...context.repo,
@@ -162,7 +168,9 @@ async function run(): Promise<void> {
       if (status === 'pending') {
         core.debug('Waiting 5 seconds before checking deploy status again')
         attempts++
-        wait(5000)
+        wait(
+          core.getInput('interval') ? Number(core.getInput('interval')) : 10_000
+        )
       }
 
       if (status === 'success') {

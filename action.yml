@@ -9,6 +9,18 @@ inputs:
     required: true
     description: 'GitHub token'
     default: '${{ github.token }}'
+  render-api-base-url:
+    required: false
+    description: 'Render API base URL'
+    default: 'https://api.render.com/v1'
+  max-attempts:
+    required: false
+    description: 'Maximum number of attempts'
+    default: 100
+  interval:
+    required: false
+    description: 'Interval between attempts (in milliseconds)'
+    default: 10000
 runs:
   using: 'node16'
   main: 'dist/index.js'

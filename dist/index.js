@@ -78,7 +78,7 @@ function run() {
         try {
             const apiKey = core.getInput('render-api-key') || process.env.RENDER_API_KEY || '';
             const render = axios_1.default.create({
-                baseURL: 'https://api.render.com/v1',
+                baseURL: core.getInput('render-api-base-url') || 'https://api.render.com/v1',
                 headers: {
                     Authorization: `Bearer ${apiKey}`
                 }
@@ -111,7 +111,7 @@ function run() {
             // Create GitHub deployment
             core.debug(`Creating GitHub deployment for ${serviceName} - ${deploy.id}`);
             const octokit = (0, github_1.getOctokit)(core.getInput('github-token'));
-            const { data: deployment } = yield octokit.rest.repos.createDeployment(Object.assign(Object.assign({}, github_1.context.repo), { ref: deploy.commit.id, environment: 'preview', description: `Preview deployment for ${(_b = github_1.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha} on Render`, transient_environment: true, auto_merge: false }));
+            const { data: deployment } = yield octokit.rest.repos.createDeployment(Object.assign(Object.assign({}, github_1.context.repo), { ref: deploy.commit.id, environment: `Render – ${serviceName} – ${deploy.id}`, description: `Preview deployment for ${(_b = github_1.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha} on Render`, transient_environment: true, auto_merge: false }));
             if (!('id' in deployment))
                 throw new Error('No deployment ID found');
             core.debug(`Created GitHub deployment ${deployment.id}`);
@@ -120,7 +120,10 @@ function run() {
             let attempts = 0;
             while (status === 'pending') {
                 // Check if we've exceeded the max number of attempts
-                if (attempts > 100) {
+                if (attempts >
+                    (core.getInput('max-attempts')
+                        ? Number(core.getInput('max-attempts'))
+                        : 100)) {
                     core.debug('Exceeded max number of attempts, failing');
                     yield octokit.rest.repos.createDeploymentStatus(Object.assign(Object.assign({}, github_1.context.repo), { deployment_id: deployment.id, state: 'failure', description: 'Exceeded max number of attempts' }));
                     return;
@@ -141,7 +144,7 @@ function run() {
                 if (status === 'pending') {
                     core.debug('Waiting 5 seconds before checking deploy status again');
                     attempts++;
-                    (0, wait_1.wait)(5000);
+                    (0, wait_1.wait)(core.getInput('interval') ? Number(core.getInput('interval')) : 10000);
                 }
                 if (status === 'success') {
                     core.debug('Deploy succeeded');
