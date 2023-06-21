@@ -100,10 +100,8 @@ function run() {
             core.setOutput('service-name', serviceName);
             core.setOutput('service-id', serviceId);
             core.setOutput('dashboard-url', dashboardUrl);
-            const createdAfter = new Date();
-            createdAfter.setDate(createdAfter.getDate() - 1);
-            core.debug(`Getting deploys for service ${serviceId} created after ${createdAfter.toISOString()}`);
-            const { data } = yield render.get(`/services/${serviceId}/deploys?createdAfter=${encodeURIComponent(createdAfter.toISOString())}&limit=20`);
+            core.debug(`Getting deploys: /services/${serviceId}/deploys?limit=20`);
+            const { data } = yield render.get(`/services/${serviceId}/deploys?limit=20`);
             core.debug(`Got deploys: ${data.length}`);
             if (!data.length)
                 throw new Error('No deploys found');
