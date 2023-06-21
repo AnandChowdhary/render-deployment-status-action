@@ -46,8 +46,34 @@ const core = __importStar(__nccwpck_require__(2186));
 const github_1 = __nccwpck_require__(5438);
 const axios_1 = __importDefault(__nccwpck_require__(8757));
 const wait_1 = __nccwpck_require__(5817);
+/**
+ * Parses the comment body from a Render PR comment
+ * @param commentBody - The comment body to parse
+ * @returns - An object containing the parsed comment body
+ * @example
+ * const commentBody = `
+ * Your [Render](https://render.com) PR Server URL is {serverUrl}.
+ * Follow its progress at https://dashboard.render.com/{serviceName}/{serviceId}.
+ * `
+ * const {serverUrl, serviceName, serviceId, dashboardUrl} = parseCommentBody(commentBody)
+ */
+function parseCommentBody(commentBody) {
+    var _a, _b, _c, _d, _e;
+    const matches = commentBody.match(/PR Server URL is (?<serverUrl>https:\/\/api-pr-[0-9a-z-]+.onrender.com)/i);
+    if (!((_a = matches === null || matches === void 0 ? void 0 : matches.groups) === null || _a === void 0 ? void 0 : _a.serverUrl))
+        throw new Error('No server URL found');
+    const serverUrl = matches.groups.serverUrl;
+    const serviceName = (_c = (_b = commentBody.match(/https:\/\/dashboard.render.com\/(?<serviceName>[a-z0-9-]+)\/(?<serviceId>[a-z0-9-]+)/i)) === null || _b === void 0 ? void 0 : _b.groups) === null || _c === void 0 ? void 0 : _c.serviceName;
+    if (!serviceName)
+        throw new Error('No service name found');
+    const serviceId = (_e = (_d = commentBody.match(/https:\/\/dashboard.render.com\/(?<serviceName>[a-z0-9-]+)\/(?<serviceId>[a-z0-9-]+)/i)) === null || _d === void 0 ? void 0 : _d.groups) === null || _e === void 0 ? void 0 : _e.serviceId;
+    if (!serviceId)
+        throw new Error('No service ID found');
+    const dashboardUrl = `https://dashboard.render.com/${serviceName}/${serviceId}`;
+    return { serverUrl, serviceName, serviceId, dashboardUrl };
+}
 function run() {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const apiKey = core.getInput('render-api-key') || process.env.RENDER_API_KEY || '';
@@ -65,24 +91,15 @@ function run() {
             // Make sure comment is from Render
             if (!commentBody.includes('Your Render PR Server URL is'))
                 return core.debug('Comment is not from Render, skipping');
-            // Comment looks like this:
-            // Your Render PR Server URL is https://api-pr-324-ovto.onrender.com.
-            // Follow its progress at https://dashboard.render.com/web/srv-ci9bopliuie2p3pd7a3g.
-            // Extract the name and ID from the comment body https://dashboard.render.com/{name}/{id}
-            const matches = commentBody.match(/https:\/\/dashboard.render.com\/(?<name>[a-z0-9-]+)\/(?<id>[a-z0-9-]+)/i);
-            if (!((_b = matches === null || matches === void 0 ? void 0 : matches.groups) === null || _b === void 0 ? void 0 : _b.name) || !((_c = matches === null || matches === void 0 ? void 0 : matches.groups) === null || _c === void 0 ? void 0 : _c.id))
-                throw new Error('No service name or ID found');
-            const { name: serviceName, id: serviceId } = matches.groups;
+            const { serverUrl, serviceName, serviceId, dashboardUrl } = parseCommentBody(commentBody);
+            core.debug(`Using server URL: ${serverUrl}`);
             core.debug(`Using service name: ${serviceName}`);
             core.debug(`Using service ID: ${serviceId}`);
-            if (!serviceName || !serviceId)
-                throw new Error('No service name or ID found');
-            // Extract the Render PR Server URL from the comment body
-            // Your Render PR Server URL is {serverUrl}.
-            const serverUrl = (_e = (_d = commentBody.match(/Your Render PR Server URL is (?<serverUrl>https:\/\/api-pr-[0-9a-z-]+.onrender.com)/i)) === null || _d === void 0 ? void 0 : _d.groups) === null || _e === void 0 ? void 0 : _e.serverUrl;
-            if (!serverUrl)
-                throw new Error('No server URL found');
-            core.debug(`Using server URL: ${serverUrl}`);
+            core.debug(`Using dashboard URL: ${dashboardUrl}`);
+            core.setOutput('server-url', serverUrl);
+            core.setOutput('service-name', serviceName);
+            core.setOutput('service-id', serviceId);
+            core.setOutput('dashboard-url', dashboardUrl);
             const createdAfter = new Date();
             createdAfter.setDate(createdAfter.getDate() - 1);
             core.debug(`Getting deploys for service ${serviceId} created after ${createdAfter.toISOString()}`);
@@ -94,9 +111,9 @@ function run() {
             const { deploy } = data.sort((a, b) => new Date(b.deploy.createdAt).getTime() -
                 new Date(a.deploy.createdAt).getTime())[0];
             // Create GitHub deployment
-            core.debug(`Creating GitHub deployment for ${deploy.id}`);
+            core.debug(`Creating GitHub deployment for ${serviceName} - ${deploy.id}`);
             const octokit = (0, github_1.getOctokit)(core.getInput('github-token'));
-            const { data: deployment } = yield octokit.rest.repos.createDeployment(Object.assign(Object.assign({}, github_1.context.repo), { ref: deploy.commit.id, environment: 'preview', description: `Preview deployment for ${(_f = github_1.context.payload.pull_request) === null || _f === void 0 ? void 0 : _f.head.sha} on Render`, transient_environment: true, auto_merge: false }));
+            const { data: deployment } = yield octokit.rest.repos.createDeployment(Object.assign(Object.assign({}, github_1.context.repo), { ref: deploy.commit.id, environment: 'preview', description: `Preview deployment for ${(_b = github_1.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha} on Render`, transient_environment: true, auto_merge: false }));
             if (!('id' in deployment))
                 throw new Error('No deployment ID found');
             core.debug(`Created GitHub deployment ${deployment.id}`);
@@ -122,7 +139,7 @@ function run() {
                     status = 'inactive';
                 // Create GitHub deployment status
                 core.debug(`Creating GitHub deployment status for ${deployment.id}`);
-                yield octokit.rest.repos.createDeploymentStatus(Object.assign(Object.assign({}, github_1.context.repo), { deployment_id: deployment.id, state: status, log_url: deploy.status === 'build_failed' ? serverUrl : undefined, environment_url: deploy.status === 'live' ? serverUrl : undefined, description: deploy.status === 'build_failed' ? 'Build failed' : undefined }));
+                yield octokit.rest.repos.createDeploymentStatus(Object.assign(Object.assign({}, github_1.context.repo), { deployment_id: deployment.id, state: status, log_url: dashboardUrl, environment_url: deploy.status === 'live' ? serverUrl : undefined, description: deploy.status === 'build_failed' ? 'Build failed' : undefined }));
                 if (status === 'pending') {
                     core.debug('Waiting 5 seconds before checking deploy status again');
                     attempts++;

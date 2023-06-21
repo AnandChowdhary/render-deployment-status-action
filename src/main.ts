@@ -21,6 +21,43 @@ interface Data {
   cursor: string
 }
 
+/**
+ * Parses the comment body from a Render PR comment
+ * @param commentBody - The comment body to parse
+ * @returns - An object containing the parsed comment body
+ * @example
+ * const commentBody = `
+ * Your [Render](https://render.com) PR Server URL is {serverUrl}.
+ * Follow its progress at https://dashboard.render.com/{serviceName}/{serviceId}.
+ * `
+ * const {serverUrl, serviceName, serviceId, dashboardUrl} = parseCommentBody(commentBody)
+ */
+function parseCommentBody(commentBody: string): {
+  serverUrl: string
+  serviceName: string
+  serviceId: string
+  dashboardUrl: string
+} {
+  const matches = commentBody.match(
+    /PR Server URL is (?<serverUrl>https:\/\/api-pr-[0-9a-z-]+.onrender.com)/i
+  )
+  if (!matches?.groups?.serverUrl) throw new Error('No server URL found')
+  const serverUrl = matches.groups.serverUrl
+
+  const serviceName = commentBody.match(
+    /https:\/\/dashboard.render.com\/(?<serviceName>[a-z0-9-]+)\/(?<serviceId>[a-z0-9-]+)/i
+  )?.groups?.serviceName
+  if (!serviceName) throw new Error('No service name found')
+
+  const serviceId = commentBody.match(
+    /https:\/\/dashboard.render.com\/(?<serviceName>[a-z0-9-]+)\/(?<serviceId>[a-z0-9-]+)/i
+  )?.groups?.serviceId
+  if (!serviceId) throw new Error('No service ID found')
+
+  const dashboardUrl = `https://dashboard.render.com/${serviceName}/${serviceId}`
+  return {serverUrl, serviceName, serviceId, dashboardUrl}
+}
+
 async function run(): Promise<void> {
   try {
     const apiKey: string =
@@ -41,28 +78,16 @@ async function run(): Promise<void> {
     if (!commentBody.includes('Your Render PR Server URL is'))
       return core.debug('Comment is not from Render, skipping')
 
-    // Comment looks like this:
-    // Your Render PR Server URL is https://api-pr-324-ovto.onrender.com.
-    // Follow its progress at https://dashboard.render.com/web/srv-ci9bopliuie2p3pd7a3g.
-    // Extract the name and ID from the comment body https://dashboard.render.com/{name}/{id}
-    const matches = commentBody.match(
-      /https:\/\/dashboard.render.com\/(?<name>[a-z0-9-]+)\/(?<id>[a-z0-9-]+)/i
-    )
-    if (!matches?.groups?.name || !matches?.groups?.id)
-      throw new Error('No service name or ID found')
-    const {name: serviceName, id: serviceId} = matches.groups
+    const {serverUrl, serviceName, serviceId, dashboardUrl} =
+      parseCommentBody(commentBody)
+    core.debug(`Using server URL: ${serverUrl}`)
     core.debug(`Using service name: ${serviceName}`)
     core.debug(`Using service ID: ${serviceId}`)
-    if (!serviceName || !serviceId)
-      throw new Error('No service name or ID found')
-
-    // Extract the Render PR Server URL from the comment body
-    // Your Render PR Server URL is {serverUrl}.
-    const serverUrl = commentBody.match(
-      /Your Render PR Server URL is (?<serverUrl>https:\/\/api-pr-[0-9a-z-]+.onrender.com)/i
-    )?.groups?.serverUrl
-    if (!serverUrl) throw new Error('No server URL found')
-    core.debug(`Using server URL: ${serverUrl}`)
+    core.debug(`Using dashboard URL: ${dashboardUrl}`)
+    core.setOutput('server-url', serverUrl)
+    core.setOutput('service-name', serviceName)
+    core.setOutput('service-id', serviceId)
+    core.setOutput('dashboard-url', dashboardUrl)
 
     const createdAfter = new Date()
     createdAfter.setDate(createdAfter.getDate() - 1)
@@ -86,7 +111,7 @@ async function run(): Promise<void> {
     )[0]
 
     // Create GitHub deployment
-    core.debug(`Creating GitHub deployment for ${deploy.id}`)
+    core.debug(`Creating GitHub deployment for ${serviceName} - ${deploy.id}`)
     const octokit = getOctokit(core.getInput('github-token'))
     const {data: deployment} = await octokit.rest.repos.createDeployment({
       ...context.repo,
@@ -131,7 +156,7 @@ async function run(): Promise<void> {
         ...context.repo,
         deployment_id: deployment.id,
         state: status,
-        log_url: deploy.status === 'build_failed' ? serverUrl : undefined,
+        log_url: dashboardUrl,
         environment_url: deploy.status === 'live' ? serverUrl : undefined,
         description:
           deploy.status === 'build_failed' ? 'Build failed' : undefined
