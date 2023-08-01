@@ -70,6 +70,8 @@ async function run(): Promise<void> {
       }
     })
 
+    if (!context.payload.comment) throw new Error('No comment found')
+
     // Get comment body
     const commentBody = context.payload.comment?.body
     if (!commentBody) throw new Error('No comment body found')
@@ -112,10 +114,21 @@ async function run(): Promise<void> {
     core.debug(
       `Creating GitHub commit status for ${serviceName} - ${deploy.id}`
     )
+
     const octokit = getOctokit(core.getInput('github-token'))
+    const comment = await octokit.rest.issues.getComment({
+      ...context.repo,
+      comment_id: context.payload.comment.id
+    })
+    const pr = await octokit.rest.pulls.get({
+      ...context.repo,
+      pull_number: Number(comment.data.issue_url.split('/').pop())
+    })
+    const sha = pr.data.head.sha
+
     const {data: commitStatus} = await octokit.rest.repos.createCommitStatus({
       ...context.repo,
-      sha: context.payload.pull_request?.head.sha ?? context.sha,
+      sha,
       state: 'pending',
       target_url: dashboardUrl,
       description: `Preview deployment on Render`,
@@ -137,7 +150,7 @@ async function run(): Promise<void> {
         core.debug('Exceeded max number of attempts, failing')
         await octokit.rest.repos.createCommitStatus({
           ...context.repo,
-          sha: context.payload.pull_request?.head.sha ?? context.sha,
+          sha,
           state: 'failure',
           target_url: dashboardUrl,
           description: `Exceeded max number of attempts`,
@@ -160,7 +173,7 @@ async function run(): Promise<void> {
       core.debug(`Creating GitHub commit status for ${commitStatus.id}`)
       await octokit.rest.repos.createCommitStatus({
         ...context.repo,
-        sha: context.payload.pull_request?.head.sha ?? context.sha,
+        sha,
         state: status,
         target_url: deploy.status === 'live' ? serverUrl : dashboardUrl,
         description:
@@ -171,7 +184,7 @@ async function run(): Promise<void> {
       if (status === 'pending') {
         core.debug('Waiting 5 seconds before checking deploy status again')
         attempts++
-        wait(
+        await wait(
           core.getInput('interval') ? Number(core.getInput('interval')) : 10_000
         )
       }
@@ -179,7 +192,7 @@ async function run(): Promise<void> {
       if (status === 'success') {
         await octokit.rest.repos.createCommitStatus({
           ...context.repo,
-          sha: context.payload.pull_request?.head.sha ?? context.sha,
+          sha,
           state: 'success',
           target_url: dashboardUrl,
           description: 'Deploy succeeded',
@@ -193,7 +206,7 @@ async function run(): Promise<void> {
       if (status === 'failure') {
         await octokit.rest.repos.createCommitStatus({
           ...context.repo,
-          sha: context.payload.pull_request?.head.sha ?? context.sha,
+          sha,
           state: 'failure',
           target_url: dashboardUrl,
           description: 'Deploy failed',
