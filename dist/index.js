@@ -73,7 +73,7 @@ function parseCommentBody(commentBody) {
     return { serverUrl, serviceName, serviceId, dashboardUrl };
 }
 function run() {
-    var _a;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const apiKey = core.getInput('render-api-key') || process.env.RENDER_API_KEY || '';
@@ -111,7 +111,7 @@ function run() {
             // Create GitHub commit status
             core.debug(`Creating GitHub commit status for ${serviceName} - ${deploy.id}`);
             const octokit = (0, github_1.getOctokit)(core.getInput('github-token'));
-            const { data: commitStatus } = yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: 'pending', target_url: dashboardUrl, description: `Preview deployment on Render`, context: `Render – ${serviceName} – ${deploy.id}` }));
+            const { data: commitStatus } = yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: (_c = (_b = github_1.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha) !== null && _c !== void 0 ? _c : github_1.context.sha, state: 'pending', target_url: dashboardUrl, description: `Preview deployment on Render`, context: `Render – ${serviceName} – ${deploy.id}` }));
             core.debug(`Created GitHub commit status ${commitStatus.id}`);
             core.setOutput('status-id', commitStatus.id.toString());
             let status = 'pending';
@@ -123,7 +123,7 @@ function run() {
                         ? Number(core.getInput('max-attempts'))
                         : 100)) {
                     core.debug('Exceeded max number of attempts, failing');
-                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: 'failure', target_url: dashboardUrl, description: `Exceeded max number of attempts`, context: `Render – ${serviceName} – ${deploy.id}` }));
+                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: (_e = (_d = github_1.context.payload.pull_request) === null || _d === void 0 ? void 0 : _d.head.sha) !== null && _e !== void 0 ? _e : github_1.context.sha, state: 'failure', target_url: dashboardUrl, description: `Exceeded max number of attempts`, context: `Render – ${serviceName} – ${deploy.id}` }));
                     return;
                 }
                 // Get deploy status
@@ -138,20 +138,20 @@ function run() {
                     status = 'error';
                 // Create GitHub deployment status
                 core.debug(`Creating GitHub commit status for ${commitStatus.id}`);
-                yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: status, target_url: deploy.status === 'live' ? serverUrl : dashboardUrl, description: deployStatus.status === 'build_failed' ? 'Build failed' : undefined, context: `Render – ${serviceName} – ${deploy.id}` }));
+                yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: (_g = (_f = github_1.context.payload.pull_request) === null || _f === void 0 ? void 0 : _f.head.sha) !== null && _g !== void 0 ? _g : github_1.context.sha, state: status, target_url: deploy.status === 'live' ? serverUrl : dashboardUrl, description: deployStatus.status === 'build_failed' ? 'Build failed' : undefined, context: `Render – ${serviceName} – ${deploy.id}` }));
                 if (status === 'pending') {
                     core.debug('Waiting 5 seconds before checking deploy status again');
                     attempts++;
                     (0, wait_1.wait)(core.getInput('interval') ? Number(core.getInput('interval')) : 10000);
                 }
                 if (status === 'success') {
-                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: 'success', target_url: dashboardUrl, description: 'Deploy succeeded', context: `Render – ${serviceName} – ${deploy.id}` }));
+                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: (_j = (_h = github_1.context.payload.pull_request) === null || _h === void 0 ? void 0 : _h.head.sha) !== null && _j !== void 0 ? _j : github_1.context.sha, state: 'success', target_url: dashboardUrl, description: 'Deploy succeeded', context: `Render – ${serviceName} – ${deploy.id}` }));
                     core.debug('Deploy succeeded');
                     core.setOutput(status, 'success');
                     return;
                 }
                 if (status === 'failure') {
-                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: 'failure', target_url: dashboardUrl, description: 'Deploy failed', context: `Render – ${serviceName} – ${deploy.id}` }));
+                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: (_l = (_k = github_1.context.payload.pull_request) === null || _k === void 0 ? void 0 : _k.head.sha) !== null && _l !== void 0 ? _l : github_1.context.sha, state: 'failure', target_url: dashboardUrl, description: 'Deploy failed', context: `Render – ${serviceName} – ${deploy.id}` }));
                     core.debug('Deploy failed');
                     core.setOutput(status, 'failure');
                     return;

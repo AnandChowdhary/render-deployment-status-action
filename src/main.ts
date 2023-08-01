@@ -115,7 +115,7 @@ async function run(): Promise<void> {
     const octokit = getOctokit(core.getInput('github-token'))
     const {data: commitStatus} = await octokit.rest.repos.createCommitStatus({
       ...context.repo,
-      sha: context.sha,
+      sha: context.payload.pull_request?.head.sha ?? context.sha,
       state: 'pending',
       target_url: dashboardUrl,
       description: `Preview deployment on Render`,
@@ -137,7 +137,7 @@ async function run(): Promise<void> {
         core.debug('Exceeded max number of attempts, failing')
         await octokit.rest.repos.createCommitStatus({
           ...context.repo,
-          sha: context.sha,
+          sha: context.payload.pull_request?.head.sha ?? context.sha,
           state: 'failure',
           target_url: dashboardUrl,
           description: `Exceeded max number of attempts`,
@@ -160,7 +160,7 @@ async function run(): Promise<void> {
       core.debug(`Creating GitHub commit status for ${commitStatus.id}`)
       await octokit.rest.repos.createCommitStatus({
         ...context.repo,
-        sha: context.sha,
+        sha: context.payload.pull_request?.head.sha ?? context.sha,
         state: status,
         target_url: deploy.status === 'live' ? serverUrl : dashboardUrl,
         description:
@@ -179,7 +179,7 @@ async function run(): Promise<void> {
       if (status === 'success') {
         await octokit.rest.repos.createCommitStatus({
           ...context.repo,
-          sha: context.sha,
+          sha: context.payload.pull_request?.head.sha ?? context.sha,
           state: 'success',
           target_url: dashboardUrl,
           description: 'Deploy succeeded',
@@ -193,7 +193,7 @@ async function run(): Promise<void> {
       if (status === 'failure') {
         await octokit.rest.repos.createCommitStatus({
           ...context.repo,
-          sha: context.sha,
+          sha: context.payload.pull_request?.head.sha ?? context.sha,
           state: 'failure',
           target_url: dashboardUrl,
           description: 'Deploy failed',
