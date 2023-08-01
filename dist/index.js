@@ -73,7 +73,7 @@ function parseCommentBody(commentBody) {
     return { serverUrl, serviceName, serviceId, dashboardUrl };
 }
 function run() {
-    var _a, _b;
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const apiKey = core.getInput('render-api-key') || process.env.RENDER_API_KEY || '';
@@ -108,14 +108,12 @@ function run() {
             // Get the most recent deploy
             const { deploy } = data.sort((a, b) => new Date(b.deploy.createdAt).getTime() -
                 new Date(a.deploy.createdAt).getTime())[0];
-            // Create GitHub deployment
-            core.debug(`Creating GitHub deployment for ${serviceName} - ${deploy.id}`);
+            // Create GitHub commit status
+            core.debug(`Creating GitHub commit status for ${serviceName} - ${deploy.id}`);
             const octokit = (0, github_1.getOctokit)(core.getInput('github-token'));
-            const { data: deployment } = yield octokit.rest.repos.createDeployment(Object.assign(Object.assign({}, github_1.context.repo), { ref: deploy.commit.id, environment: `Render – ${serviceName} – ${deploy.id}`, description: `Preview deployment for ${(_b = github_1.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha} on Render`, transient_environment: true, auto_merge: false }));
-            if (!('id' in deployment))
-                throw new Error('No deployment ID found');
-            core.debug(`Created GitHub deployment ${deployment.id}`);
-            core.setOutput('deployment-id', deployment.id.toString());
+            const { data: commitStatus } = yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: 'pending', target_url: dashboardUrl, description: `Preview deployment on Render`, context: `Render – ${serviceName} – ${deploy.id}` }));
+            core.debug(`Created GitHub commit status ${commitStatus.id}`);
+            core.setOutput('status-id', commitStatus.id.toString());
             let status = 'pending';
             let attempts = 0;
             while (status === 'pending') {
@@ -125,7 +123,7 @@ function run() {
                         ? Number(core.getInput('max-attempts'))
                         : 100)) {
                     core.debug('Exceeded max number of attempts, failing');
-                    yield octokit.rest.repos.createDeploymentStatus(Object.assign(Object.assign({}, github_1.context.repo), { deployment_id: deployment.id, state: 'failure', description: 'Exceeded max number of attempts' }));
+                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: 'failure', target_url: dashboardUrl, description: `Exceeded max number of attempts`, context: `Render – ${serviceName} – ${deploy.id}` }));
                     return;
                 }
                 // Get deploy status
@@ -137,10 +135,10 @@ function run() {
                 if (deployStatus.status === 'build_failed')
                     status = 'failure';
                 if (deployStatus.status === 'deactivated')
-                    status = 'inactive';
+                    status = 'error';
                 // Create GitHub deployment status
-                core.debug(`Creating GitHub deployment status for ${deployment.id}`);
-                yield octokit.rest.repos.createDeploymentStatus(Object.assign(Object.assign({}, github_1.context.repo), { deployment_id: deployment.id, state: status, log_url: dashboardUrl, environment_url: deploy.status === 'live' ? serverUrl : undefined, description: deploy.status === 'build_failed' ? 'Build failed' : undefined }));
+                core.debug(`Creating GitHub commit status for ${commitStatus.id}`);
+                yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: status, target_url: deploy.status === 'live' ? serverUrl : dashboardUrl, description: deployStatus.status === 'build_failed' ? 'Build failed' : undefined, context: `Render – ${serviceName} – ${deploy.id}` }));
                 if (status === 'pending') {
                     core.debug('Waiting 5 seconds before checking deploy status again');
                     attempts++;

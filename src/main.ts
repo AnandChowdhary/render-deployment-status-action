@@ -108,22 +108,23 @@ async function run(): Promise<void> {
         new Date(a.deploy.createdAt).getTime()
     )[0]
 
-    // Create GitHub deployment
-    core.debug(`Creating GitHub deployment for ${serviceName} - ${deploy.id}`)
+    // Create GitHub commit status
+    core.debug(
+      `Creating GitHub commit status for ${serviceName} - ${deploy.id}`
+    )
     const octokit = getOctokit(core.getInput('github-token'))
-    const {data: deployment} = await octokit.rest.repos.createDeployment({
+    const {data: commitStatus} = await octokit.rest.repos.createCommitStatus({
       ...context.repo,
-      ref: deploy.commit.id,
-      environment: `Render – ${serviceName} – ${deploy.id}`,
-      description: `Preview deployment for ${context.payload.pull_request?.head.sha} on Render`,
-      transient_environment: true,
-      auto_merge: false
+      sha: context.sha,
+      state: 'pending',
+      target_url: dashboardUrl,
+      description: `Preview deployment on Render`,
+      context: `Render – ${serviceName} – ${deploy.id}`
     })
-    if (!('id' in deployment)) throw new Error('No deployment ID found')
-    core.debug(`Created GitHub deployment ${deployment.id}`)
-    core.setOutput('deployment-id', deployment.id.toString())
+    core.debug(`Created GitHub commit status ${commitStatus.id}`)
+    core.setOutput('status-id', commitStatus.id.toString())
 
-    let status: 'pending' | 'success' | 'inactive' | 'failure' = 'pending'
+    let status: 'error' | 'failure' | 'pending' | 'success' = 'pending'
     let attempts = 0
     while (status === 'pending') {
       // Check if we've exceeded the max number of attempts
@@ -134,11 +135,13 @@ async function run(): Promise<void> {
           : 100)
       ) {
         core.debug('Exceeded max number of attempts, failing')
-        await octokit.rest.repos.createDeploymentStatus({
+        await octokit.rest.repos.createCommitStatus({
           ...context.repo,
-          deployment_id: deployment.id,
+          sha: context.sha,
           state: 'failure',
-          description: 'Exceeded max number of attempts'
+          target_url: dashboardUrl,
+          description: `Exceeded max number of attempts`,
+          context: `Render – ${serviceName} – ${deploy.id}`
         })
         return
       }
@@ -151,18 +154,18 @@ async function run(): Promise<void> {
       core.debug(`Got deploy status: ${deployStatus.status}`)
       if (deployStatus.status === 'live') status = 'success'
       if (deployStatus.status === 'build_failed') status = 'failure'
-      if (deployStatus.status === 'deactivated') status = 'inactive'
+      if (deployStatus.status === 'deactivated') status = 'error'
 
       // Create GitHub deployment status
-      core.debug(`Creating GitHub deployment status for ${deployment.id}`)
-      await octokit.rest.repos.createDeploymentStatus({
+      core.debug(`Creating GitHub commit status for ${commitStatus.id}`)
+      await octokit.rest.repos.createCommitStatus({
         ...context.repo,
-        deployment_id: deployment.id,
+        sha: context.sha,
         state: status,
-        log_url: dashboardUrl,
-        environment_url: deploy.status === 'live' ? serverUrl : undefined,
+        target_url: deploy.status === 'live' ? serverUrl : dashboardUrl,
         description:
-          deploy.status === 'build_failed' ? 'Build failed' : undefined
+          deployStatus.status === 'build_failed' ? 'Build failed' : undefined,
+        context: `Render – ${serviceName} – ${deploy.id}`
       })
 
       if (status === 'pending') {
