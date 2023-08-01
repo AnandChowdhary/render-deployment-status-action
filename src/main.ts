@@ -177,12 +177,28 @@ async function run(): Promise<void> {
       }
 
       if (status === 'success') {
+        await octokit.rest.repos.createCommitStatus({
+          ...context.repo,
+          sha: context.sha,
+          state: 'success',
+          target_url: dashboardUrl,
+          description: 'Deploy succeeded',
+          context: `Render – ${serviceName} – ${deploy.id}`
+        })
         core.debug('Deploy succeeded')
         core.setOutput(status, 'success')
         return
       }
 
       if (status === 'failure') {
+        await octokit.rest.repos.createCommitStatus({
+          ...context.repo,
+          sha: context.sha,
+          state: 'failure',
+          target_url: dashboardUrl,
+          description: 'Deploy failed',
+          context: `Render – ${serviceName} – ${deploy.id}`
+        })
         core.debug('Deploy failed')
         core.setOutput(status, 'failure')
         return

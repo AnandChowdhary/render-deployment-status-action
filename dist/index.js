@@ -145,11 +145,13 @@ function run() {
                     (0, wait_1.wait)(core.getInput('interval') ? Number(core.getInput('interval')) : 10000);
                 }
                 if (status === 'success') {
+                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: 'success', target_url: dashboardUrl, description: 'Deploy succeeded', context: `Render – ${serviceName} – ${deploy.id}` }));
                     core.debug('Deploy succeeded');
                     core.setOutput(status, 'success');
                     return;
                 }
                 if (status === 'failure') {
+                    yield octokit.rest.repos.createCommitStatus(Object.assign(Object.assign({}, github_1.context.repo), { sha: github_1.context.sha, state: 'failure', target_url: dashboardUrl, description: 'Deploy failed', context: `Render – ${serviceName} – ${deploy.id}` }));
                     core.debug('Deploy failed');
                     core.setOutput(status, 'failure');
                     return;
